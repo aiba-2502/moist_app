@@ -11,8 +11,7 @@ Kintone API を利用して、患者情報、会計情報、明細情報の取�
 | POST     | /getRecordNumbers | Kintoneから患者情報を取得する（キャッシュに保存） |
 | GET      | /price            | 会計情報を取得する（キャッシュ利用） |
 | GET      | /details          | 明細情報を取得する（キャッシュ利用） |
-| POST     | /updatePaymentStatus | 決済確認ステータスを更新する |
-
+| POST     | /updatePaymentStatus | 決済確認ステータスを更新する （キャッシュクリア）|
 
 ## **3. API仕様**
 
@@ -135,7 +134,33 @@ Kintone API を利用して、患者情報、会計情報、明細情報の取�
 2. データのキャッシュ
    - データはサーバーメモリ上にキャッシュされます
    - キャッシュは電話番号をキーとして保存されます
-   - サーバー再起動時にキャッシュはクリアされます
+
+   ### **2.1. キャッシュのクリアタイミング**
+   以下の場合にキャッシュがクリアされます：
+
+   1. サーバー再起動時
+      - アプリケーション再起動時に全てのキャッシュが消去されます
+      - 再起動後は再度 `/getRecordNumbers` の呼び出しが必要です
+
+   2. 決済確認更新時
+      - `/updatePaymentStatus` APIの呼び出し成功時
+      - 更新された患者の電話番号に紐づくキャッシュのみが削除されます
+      - 他の患者のキャッシュには影響しません
+
+   3. エラー発生時
+      - Kintone APIとの通信エラー発生時
+      - データ整合性が保証できない場合
+      - エラーが発生した患者の電話番号に紐づくキャッシュのみが削除されます
+
+   ### **2.2. キャッシュの再取得**
+   キャッシュがクリアされた場合：
+   - 再度 `/getRecordNumbers` を呼び出す必要があります
+   - キャッシュが存在しない状態で他のAPIを呼び出すと404エラーが返されます
+   - キャッシュの再取得は、最新のKintoneデータを取得するため必要な処理です
+
+   ### **2.3. キャッシュの有効期限**
+   - キャッシュに有効期限は設定されていません
+   - 明示的なクリアタイミング以外はキャッシュが維持されます
 
 3. エラーハンドリング
    - すべてのリクエストで電話番号は必須です
@@ -147,3 +172,82 @@ Kintone API を利用して、患者情報、会計情報、明細情報の取�
    - すべてのリクエスト・レスポンスはJSON形式
    - 数値データも文字列として返されます
    - 日付はKintoneの形式のまま文字列として返されます
+
+## **6. Postmanでの使用方法**
+
+### **6.1. 環境設定**
+1. 新しい環境を作成し、以下の変数を設定
+   - `baseUrl`: `http://localhost:3000`
+   - `phoneNumber`: テスト用電話番号（例：`"09012345678"`）
+
+### **6.2. リクエスト例**
+
+#### **患者情報取得（/getRecordNumbers）**
+```
+POST {{baseUrl}}/getRecordNumbers
+Content-Type: application/json
+
+{
+    "phoneNumber": "{{phoneNumber}}"
+}
+```
+
+#### **会計情報取得（/price）**
+```
+GET {{baseUrl}}/price?phoneNumber={{phoneNumber}}
+```
+
+#### **明細情報取得（/details）**
+```
+GET {{baseUrl}}/details?phoneNumber={{phoneNumber}}
+```
+
+#### **決済確認更新（/updatePaymentStatus）**
+```
+POST {{baseUrl}}/updatePaymentStatus
+Content-Type: application/json
+
+{
+    "phoneNumber": "{{phoneNumber}}",
+    "recordId": "取得したレコード番号"
+}
+```
+
+## **7. ログ出力仕様**
+
+### **7.1. ログ形式**
+```
+YYYY/MM/DD HH:mm:ss [LEVEL] メッセージ 追加情報
+```
+
+### **7.2. ログレベル**
+- INFO: 通常の処理情報
+- ERROR: エラー情報
+
+### **7.3. 出力先**
+- `logs/combined.log`: すべてのログ
+- `logs/error.log`: エラーログのみ
+
+### **7.4. 主なログ出力内容**
+
+#### **サーバー起動時**
+```
+2025/02/23 21:54:32 [INFO] Server running at http://localhost:3000
+2025/02/23 21:54:32 [INFO] Available endpoints:
+```
+
+#### **APIリクエスト時**
+```
+2025/02/23 21:54:32 [INFO] POST /getRecordNumbers {"query":{},"body":{"phoneNumber":"09012345678"}}
+```
+
+#### **キャッシュ操作時**
+```
+2025/02/23 21:54:32 [INFO] Cache updated for phone number: 09012345678
+2025/02/23 21:54:32 [INFO] Cache hit for phone number: 09012345678
+```
+
+#### **エラー発生時**
+```
+2025/02/23 21:54:32 [ERROR] Error fetching records: {"phoneNumber":"09012345678","error":"Network Error"}
+```

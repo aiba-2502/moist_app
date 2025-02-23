@@ -1,0 +1,55 @@
+{"level":"info","message":"Server running at http://localhost:3000","timestamp":"2025-02-23T08:33:28.051Z"}
+{"level":"info","message":"Available endpoints:","timestamp":"2025-02-23T08:33:28.053Z"}
+{"level":"info","message":"- GET /getRecordNumbers - Initial data fetch with patient info","timestamp":"2025-02-23T08:33:28.054Z"}
+{"level":"info","message":"- GET /price - Get price information","timestamp":"2025-02-23T08:33:28.054Z"}
+{"level":"info","message":"- GET /details - Get detailed information","timestamp":"2025-02-23T08:33:28.054Z"}
+{"level":"info","message":"- POST /updatePaymentStatus - Update payment confirmation status","timestamp":"2025-02-23T08:33:28.054Z"}
+{"body":{},"level":"info","message":"GET /","query":{},"timestamp":"2025-02-23T08:33:28.688Z"}
+{"body":{},"level":"info","message":"GET /","query":{},"timestamp":"2025-02-23T08:33:30.255Z"}
+{"body":{},"level":"info","message":"GET /","query":{},"timestamp":"2025-02-23T08:43:59.180Z"}
+{"body":{},"level":"info","message":"GET /","query":{},"timestamp":"2025-02-23T08:48:29.437Z"}
+2025/02/23 21:54:32 [INFO] Server running at http://localhost:3000
+2025/02/23 21:54:32 [INFO] Available endpoints:
+2025/02/23 21:54:32 [INFO] - GET /getRecordNumbers - Initial data fetch with patient info
+2025/02/23 21:54:32 [INFO] - GET /price - Get price information
+2025/02/23 21:54:32 [INFO] - GET /details - Get detailed information
+2025/02/23 21:54:32 [INFO] - POST /updatePaymentStatus - Update payment confirmation status
+2025/02/23 21:54:32 [INFO] GET / {"query":{},"body":{}}
+2025/02/23 22:01:12 [INFO] GET / {"query":{},"body":{}}
+2025/02/23 22:04:35 [INFO] GET / {"query":{},"body":{}}
+2025/02/23 22:05:38 [INFO] GET / {"query":{},"body":{}}
+2025/02/23 22:09:08 [INFO] Server running at http://localhost:3000
+2025/02/23 22:09:08 [INFO] Available endpoints:
+2025/02/23 22:09:08 [INFO] - POST /getRecordNumbers - Initial data fetch with patient info
+2025/02/23 22:09:08 [INFO] - GET /price - Get price information
+2025/02/23 22:09:08 [INFO] - GET /details - Get detailed information
+2025/02/23 22:09:08 [INFO] - POST /updatePaymentStatus - Update payment confirmation status
+2025/02/23 22:09:22 [INFO] POST /getRecordNumbers {"query":{},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:09:22 [INFO] Fetching records for phone number: 09027328888
+2025/02/23 22:09:22 [INFO] Cache updated for phone number: 09027328888
+2025/02/23 22:09:22 [INFO] Successfully fetched 0 records for 09027328888
+2025/02/23 22:10:18 [INFO] POST /getRecordNumbers {"query":{},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:10:18 [INFO] Fetching records for phone number: 09027328888
+2025/02/23 22:10:18 [INFO] Cache updated for phone number: 09027328888
+2025/02/23 22:10:18 [INFO] Successfully fetched 1 records for 09027328888
+2025/02/23 22:10:28 [INFO] GET /price?phoneNumber=09027328888 {"query":{"phoneNumber":"09027328888"},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:10:28 [INFO] Cache hit for phone number: 09027328888
+2025/02/23 22:10:28 [INFO] Successfully retrieved price data for 09027328888
+2025/02/23 22:10:32 [INFO] GET /details?phoneNumber=09027328888 {"query":{"phoneNumber":"09027328888"},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:10:32 [INFO] Cache hit for phone number: 09027328888
+2025/02/23 22:10:32 [INFO] Successfully retrieved details data for 09027328888
+2025/02/23 22:10:41 [INFO] POST /updatePaymentStatus {"query":{},"body":{"phoneNumber":"09027328888","recordId":"3"}}
+2025/02/23 22:10:41 [INFO] Cache hit for phone number: 09027328888
+2025/02/23 22:10:41 [ERROR] Invalid record ID or cache not found {"phoneNumber":"09027328888","recordId":"3"}
+2025/02/23 22:10:51 [INFO] POST /updatePaymentStatus {"query":{},"body":{"phoneNumber":"09027328888","recordId":"2"}}
+2025/02/23 22:10:51 [INFO] Cache hit for phone number: 09027328888
+2025/02/23 22:10:51 [INFO] Updating payment status for record: 2
+2025/02/23 22:10:51 [INFO] Successfully updated payment status for record: 2
+2025/02/23 22:10:51 [INFO] Cache removed for phone number: 09027328888
+2025/02/23 22:10:51 [INFO] Successfully updated payment status and removed cache for 09027328888
+2025/02/23 22:10:57 [INFO] GET /price?phoneNumber=09027328888 {"query":{"phoneNumber":"09027328888"},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:10:57 [INFO] Cache miss for phone number: 09027328888
+2025/02/23 22:10:57 [ERROR] Cache miss for phone number: 09027328888
+2025/02/23 22:11:00 [INFO] GET /details?phoneNumber=09027328888 {"query":{"phoneNumber":"09027328888"},"body":{"phoneNumber":"09027328888"}}
+2025/02/23 22:11:00 [INFO] Cache miss for phone number: 09027328888
+2025/02/23 22:11:00 [ERROR] Cache miss for phone number: 09027328888
