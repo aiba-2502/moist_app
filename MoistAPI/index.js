@@ -5,18 +5,14 @@ require('dotenv').config();
 const app = express();
 const port = 3000;
 
-// JSONパーサーを追加
 app.use(express.json());
 
-// Kintone API configuration
 const KINTONE_DOMAIN = process.env.KINTONE_DOMAIN;
 const API_TOKEN = process.env.KINTONE_API_TOKEN;
 const APP_ID = '76';
 
-// データキャッシュ用のオブジェクト
 const dataCache = new Map();
 
-// Kintoneからデータを取得する関数
 async function fetchKintoneData(phoneNumber) {
   let allRecords = [];
   let offset = 0;
@@ -28,12 +24,12 @@ async function fetchKintoneData(phoneNumber) {
       method: 'get',
       url: `https://${KINTONE_DOMAIN}/k/v1/records.json`,
       headers: {
-        'X-Cybozu-API-Token': API_TOKEN
+        'X-Cybozu-API-Token': API_TOKEN,
       },
       params: {
         app: APP_ID,
-        query: query
-      }
+        query: query,
+      },
     });
 
     const records = response.data.records;
@@ -48,29 +44,46 @@ async function fetchKintoneData(phoneNumber) {
   return allRecords;
 }
 
-// メインのデータ取得エンドポイント
+async function updateKintoneRecord(recordId) {
+  try {
+    const response = await axios({
+      method: 'put',
+      url: `https://${KINTONE_DOMAIN}/k/v1/record.json`,
+      headers: {
+        'X-Cybozu-API-Token': API_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        app: APP_ID,
+        id: recordId,
+        record: {
+          決済確認: {
+            value: ["確認済み"]
+          }
+        }
+      }
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+}
+
 app.post('/getRecordNumbers', async (req, res) => {
   const phoneNumber = req.body.phoneNumber;
 
   if (!phoneNumber) {
     return res.status(400).json({
-      error: '患者電話番号が必要です'
+      error: '患者電話番号が必要です',
     });
   }
 
   try {
     const allRecords = await fetchKintoneData(phoneNumber);
 
-    // データをキャッシュに保存
-    const processedData = {
-      patient: allRecords.map(record => ({
-        患者電話番号: record.患者電話番号?.value || '',
-        患者氏名: record.患者氏名?.value || '',
-        患者氏名カナ: record.患者氏名カナ?.value || '',
-        患者生年月日: record.患者生年月日?.value || '',
-        診療_性感染症_生物学的な性別: record.診療_性感染症_生物学的な性別?.value || ''
-      })),
-      price: allRecords.map(record => ({
+    dataCache.set(phoneNumber, {
+      rawRecords: allRecords,
+      price: allRecords.map((record) => ({
         患者電話番号: record.患者電話番号?.value || '',
         患者氏名: record.患者氏名?.value || '',
         患者氏名カナ: record.患者氏名カナ?.value || '',
@@ -78,89 +91,136 @@ app.post('/getRecordNumbers', async (req, res) => {
         診療実施日: record.診療実施日?.value || '',
         検査キット価格合計税込: record.検査キット価格合計税込?.value || '',
         薬価格合計税込: record.薬価格合計税込?.value || '',
-        合計金額税込加算減算後: record.合計金額税込加算減算後?.value || ''
+        合計金額税込加算減算後: record.合計金額税込加算減算後?.value || '',
       })),
-      details: allRecords.map(record => ({
+      details: allRecords.map((record) => ({
         患者電話番号: record.患者電話番号?.value || '',
         患者氏名: record.患者氏名?.value || '',
         患者氏名カナ: record.患者氏名カナ?.value || '',
+        レコード番号: record.$id?.value || '',
+        診療実施日: record.診療実施日?.value || '',
         薬商品名: record.薬商品名?.value || '',
         薬数量: record.薬数量?.value || '',
         検査キットプラン名: record.検査キットプラン名?.value || '',
-        検査キット数量: record.検査キット数量?.value || ''
-      }))
-    };
+        検査キット数量: record.検査キット数量?.value || '',
+      })),
+    });
 
-    dataCache.set(phoneNumber, processedData);
+    const patientInfo = {
+      患者電話番号: allRecords[0]?.患者電話番号?.value || '',
+      患者氏名: allRecords[0]?.患者氏名?.value || '',
+      患者氏名カナ: allRecords[0]?.患者氏名カナ?.value || '',
+      患者生年月日: allRecords[0]?.患者生年月日?.value || '',
+      診療_性感染症_生物学的な性別:
+        allRecords[0]?.診療_性感染症_生物学的な性別?.value || '',
+    };
 
     res.json({
       success: true,
-      recordCount: allRecords.length
+      recordCount: allRecords.length,
+      patient: patientInfo,
     });
   } catch (error) {
-    console.error('Error fetching records:', error.response?.data || error.message);
+    console.error(
+      'Error fetching records:',
+      error.response?.data || error.message
+    );
     res.status(500).json({
       error: 'Failed to fetch records from Kintone',
-      details: error.response?.data || error.message
+      details: error.response?.data || error.message,
     });
   }
 });
 
-// 患者情報取得エンドポイント
-app.post('/patient', (req, res) => {
-  const phoneNumber = req.body.phoneNumber;
+app.post('/updatePaymentStatus', async (req, res) => {
+  const { phoneNumber, recordId } = req.body;
+
+  if (!phoneNumber || !recordId) {
+    return res.status(400).json({
+      error: '患者電話番号とレコード番号が必要です',
+    });
+  }
+
+  try {
+    await updateKintoneRecord(recordId);
+    
+    // キャッシュを更新するため、データを再取得
+    const updatedRecords = await fetchKintoneData(phoneNumber);
+    
+    if (updatedRecords.length > 0) {
+      dataCache.set(phoneNumber, {
+        rawRecords: updatedRecords,
+        price: updatedRecords.map((record) => ({
+          患者電話番号: record.患者電話番号?.value || '',
+          患者氏名: record.患者氏名?.value || '',
+          患者氏名カナ: record.患者氏名カナ?.value || '',
+          レコード番号: record.$id?.value || '',
+          診療実施日: record.診療実施日?.value || '',
+          検査キット価格合計税込: record.検査キット価格合計税込?.value || '',
+          薬価格合計税込: record.薬価格合計税込?.value || '',
+          合計金額税込加算減算後: record.合計金額税込加算減算後?.value || '',
+        })),
+        details: updatedRecords.map((record) => ({
+          患者電話番号: record.患者電話番号?.value || '',
+          患者氏名: record.患者氏名?.value || '',
+          患者氏名カナ: record.患者氏名カナ?.value || '',
+          レコード番号: record.$id?.value || '',
+          診療実施日: record.診療実施日?.value || '',
+          薬商品名: record.薬商品名?.value || '',
+          薬数量: record.薬数量?.value || '',
+          検査キットプラン名: record.検査キットプラン名?.value || '',
+          検査キット数量: record.検査キット数量?.value || '',
+        })),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: '決済確認を更新しました',
+    });
+  } catch (error) {
+    console.error('Error updating record:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to update record in Kintone',
+      details: error.response?.data || error.message,
+    });
+  }
+});
+
+app.get('/price', (req, res) => {
+  const phoneNumber = req.query.phoneNumber;
 
   if (!phoneNumber) {
     return res.status(400).json({
-      error: '患者電話番号が必要です'
+      error: '患者電話番号が必要です',
     });
   }
 
   const cachedData = dataCache.get(phoneNumber);
   if (!cachedData) {
     return res.status(404).json({
-      error: 'データが見つかりません。まず /getRecordNumbers を呼び出してください。'
-    });
-  }
-
-  // 患者情報の最初のレコードのみを返す（同じ電話番号の場合、患者情報は同一のはず）
-  res.json(cachedData.patient[0] || {});
-});
-
-// 会計情報取得エンドポイント
-app.post('/price', (req, res) => {
-  const phoneNumber = req.body.phoneNumber;
-
-  if (!phoneNumber) {
-    return res.status(400).json({
-      error: '患者電話番号が必要です'
-    });
-  }
-
-  const cachedData = dataCache.get(phoneNumber);
-  if (!cachedData) {
-    return res.status(404).json({
-      error: 'データが見つかりません。まず /getRecordNumbers を呼び出してください。'
+      error:
+        'データが見つかりません。まず /getRecordNumbers を呼び出してください。',
     });
   }
 
   res.json(cachedData.price);
 });
 
-// 明細情報取得エンドポイント
-app.post('/details', (req, res) => {
-  const phoneNumber = req.body.phoneNumber;
+app.get('/details', (req, res) => {
+  const phoneNumber = req.query.phoneNumber;
 
   if (!phoneNumber) {
     return res.status(400).json({
-      error: '患者電話番号が必要です'
+      error: '患者電話番号が必要です',
     });
   }
 
   const cachedData = dataCache.get(phoneNumber);
   if (!cachedData) {
     return res.status(404).json({
-      error: 'データが見つかりません。まず /getRecordNumbers を呼び出してください。'
+      error:
+        'データが見つかりません。まず /getRecordNumbers を呼び出してください。',
     });
   }
 
@@ -170,8 +230,8 @@ app.post('/details', (req, res) => {
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   console.log('Available endpoints:');
-  console.log('- POST /getRecordNumbers - Initial data fetch');
-  console.log('- POST /patient - Get patient information');
-  console.log('- POST /price - Get price information');
-  console.log('- POST /details - Get detailed information');
+  console.log('- POST /getRecordNumbers - Initial data fetch with patient info');
+  console.log('- GET /price - Get price information');
+  console.log('- GET /details - Get detailed information');
+  console.log('- POST /updatePaymentStatus - Update payment confirmation status');
 });
